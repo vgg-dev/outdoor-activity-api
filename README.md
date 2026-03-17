@@ -1,39 +1,92 @@
 # Outdoor Activity API
 
-Backend API that recommends the best times for outdoor activities using:
+[![release](https://img.shields.io/badge/release-v0.1.0--alpha-orange)](https://github.com/vgg-dev/outdoor-activity-api)
+[![license](https://img.shields.io/badge/license-ISC-blue)](./package.json)
+[![node](https://img.shields.io/badge/node-%3E%3D20-339933)](./package.json)
+[![render-ready](https://img.shields.io/badge/render-ready-46E3B7)](./render.yaml)
 
-- `api.weather.gov` for hourly forecast and active alerts
-- EPA AirNow for AQI
+Backend API for finding the best times to do outdoor activities across the U.S.
+
+It combines:
+
+- Weather.gov hourly forecast
+- Weather.gov active alerts
+- AirNow AQI
 - EPA UV data
-- Zippopotam.us and Census geocoding helpers for US location search
+- ZIP and city/state location search
 
 Supported activities:
 
-- `hike`
 - `bike`
+- `hike`
 - `fishing`
 - `astronomy`
 - `drone`
 
-## Local setup
+## What It Does
 
-1. Install dependencies:
+Given a location and activity, the API returns:
+
+- scored hourly forecast data
+- top recommendation windows
+- severe and advisory weather alerts
+- air quality context
+- UV exposure context
+
+## Endpoints
+
+### `GET /health`
+
+Basic health check.
+
+### `GET /location-search?city=Rockville&state=MD`
+
+Resolves a U.S. city/state pair to coordinates and, when available, ZIP.
+
+Example response:
+
+```json
+{
+  "city": "Rockville",
+  "state": "MD",
+  "displayName": "Rockville, MD",
+  "lat": 39.144,
+  "lon": -77.2076,
+  "zip": "20847"
+}
+```
+
+### `GET /recommendations?lat=39.144&lon=-77.2076&zip=20847&city=Rockville&state=MD&activity=bike`
+
+Returns the next 24 scored hours and the best recommendation windows for the selected activity.
+
+## Local Setup
+
+1. Install dependencies
 
 ```bash
 npm install
 ```
 
-2. Create `.env` from `.env.example`
+2. Create `.env` from [`.env.example`](./.env.example)
 
-3. Start the API:
+3. Start the server
 
 ```bash
 npm start
 ```
 
-## Environment variables
+4. Test locally
 
-Copy [`.env.example`](C:\Users\vgera\OneDrive\Code-Dev\outdoor-activity-api\.env.example) and set:
+```bash
+http://localhost:3000/health
+http://localhost:3000/location-search?city=Rockville&state=MD
+http://localhost:3000/recommendations?lat=39.144&lon=-77.2076&zip=20847&city=Rockville&state=MD&activity=bike
+```
+
+## Environment Variables
+
+Use [`.env.example`](./.env.example) as the template:
 
 ```env
 PORT=3000
@@ -49,36 +102,44 @@ RECOMMENDATION_CACHE_TTL_MS=300000
 
 Notes:
 
-- `AIRNOW_API_KEY` is optional for local development, but AQI values will be `null` without it.
-- `WEATHER_GOV_UA` should include a real contact email, especially in production.
-- `CORS_ORIGINS` should be a comma-separated list of allowed frontend origins in production.
+- `AIRNOW_API_KEY` is optional for local development, but AQI data will be `null` without it.
+- `WEATHER_GOV_UA` should include a real contact email in production.
+- `CORS_ORIGINS` accepts a comma-separated allowlist of frontend origins.
 
-## Endpoints
+## Deploying to Render
 
-- `GET /health`
-- `GET /location-search?city=Rockville&state=MD`
-- `GET /recommendations?lat=40.7128&lon=-74.0060&activity=bike`
+This repo includes [render.yaml](./render.yaml), so it can be deployed as a Render Blueprint.
 
-## Deployment on Render
+Suggested flow:
 
-This repo now includes [render.yaml](C:\Users\vgera\OneDrive\Code-Dev\outdoor-activity-api\render.yaml) for a basic Render web service.
-
-Recommended steps:
-
-1. Push this repo to GitHub
-2. In Render, create a new Blueprint or Web Service from the repo
-3. Set these required env vars in Render:
+1. Create a new Blueprint service in Render from this GitHub repo
+2. Set:
    - `WEATHER_GOV_UA`
    - `AIRNOW_API_KEY`
    - `CORS_ORIGINS`
-4. Confirm health checks pass at `/health`
+3. Deploy
+4. Verify:
 
-## Production hardening already included
+```bash
+https://your-render-url/health
+```
 
-- proxy-aware request handling for hosted environments
-- basic security headers
+## Production Hardening Included
+
+- proxy-aware request handling
 - configurable CORS allowlist
-- simple per-IP rate limiting
-- upstream request timeouts
-- short-lived in-memory caching for repeated recommendation requests
-- safer client-facing error responses
+- basic security headers
+- per-IP rate limiting
+- upstream timeouts
+- short-lived response caching
+- safer external API error handling
+
+## Stack
+
+- Node.js
+- Express
+- Weather.gov
+- AirNow
+- EPA UV
+- Zippopotam.us
+- U.S. Census geocoder fallback
