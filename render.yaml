@@ -1,0 +1,28 @@
+services:
+  - type: web
+    name: outdoor-activity-api
+    runtime: node
+    plan: starter
+    autoDeploy: true
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_VERSION
+        value: 20
+      - key: NODE_ENV
+        value: production
+      - key: WEATHER_GOV_UA
+        sync: false
+      - key: AIRNOW_API_KEY
+        sync: false
+      - key: CORS_ORIGINS
+        sync: false
+      - key: RATE_LIMIT_WINDOW_MS
+        value: 900000
+      - key: RATE_LIMIT_MAX_REQUESTS
+        value: 60
+      - key: UPSTREAM_TIMEOUT_MS
+        value: 8000
+      - key: RECOMMENDATION_CACHE_TTL_MS
+        value: 300000
