@@ -39,7 +39,7 @@ Given a location and activity, the API returns:
 
 Basic health check.
 
-### `GET /location-search?city=Rockville&state=MD`
+### `GET /location-search?city=Gaithersburg&state=MD`
 
 Resolves a U.S. city/state pair to coordinates and, when available, ZIP.
 
@@ -47,16 +47,16 @@ Example response:
 
 ```json
 {
-  "city": "Rockville",
+  "city": "Gaithersburg",
   "state": "MD",
-  "displayName": "Rockville, MD",
-  "lat": 39.144,
-  "lon": -77.2076,
-  "zip": "20847"
+  "displayName": "Gaithersburg, MD",
+  "lat": 39.1419,
+  "lon": -77.189,
+  "zip": "20877"
 }
 ```
 
-### `GET /recommendations?lat=39.144&lon=-77.2076&zip=20847&city=Rockville&state=MD&activity=bike`
+### `GET /recommendations?lat=39.1419&lon=-77.189&zip=20877&city=Gaithersburg&state=MD&activity=bike`
 
 Returns the next 24 scored hours and the best recommendation windows for the selected activity.
 
@@ -80,8 +80,8 @@ npm start
 
 ```bash
 http://localhost:3000/health
-http://localhost:3000/location-search?city=Rockville&state=MD
-http://localhost:3000/recommendations?lat=39.144&lon=-77.2076&zip=20847&city=Rockville&state=MD&activity=bike
+http://localhost:3000/location-search?city=Gaithersburg&state=MD
+http://localhost:3000/recommendations?lat=39.1419&lon=-77.189&zip=20877&city=Gaithersburg&state=MD&activity=bike
 ```
 
 ## Environment Variables
