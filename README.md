@@ -4,6 +4,7 @@
 [![license](https://img.shields.io/badge/license-ISC-blue)](./LICENSE)
 [![node](https://img.shields.io/badge/node-%3E%3D20-339933)](./package.json)
 [![render](https://img.shields.io/badge/render-ready-46E3B7)](./render.yaml)
+[![checks](https://img.shields.io/github/actions/workflow/status/vgg-dev/outdoor-activity-api/ci.yml?branch=main&label=checks)](https://github.com/vgg-dev/outdoor-activity-api/actions/workflows/ci.yml)
 
 US-focused backend API for finding the best times to get outside.
 
@@ -18,7 +19,7 @@ It combines forecast, alerts, air quality, and UV data into activity-aware recom
 ## Highlights
 
 - Hour-by-hour scoring for the next 24 hours
-- Top recommendation windows instead of single “best hours”
+- Top recommendation windows instead of single "best hours"
 - Weather.gov alert awareness with high-risk filtering
 - AirNow AQI integration
 - EPA UV integration
@@ -80,6 +81,45 @@ Response includes:
 - `uv`
 - `recommendations`
 - `hourly`
+
+Example response excerpt:
+
+```json
+{
+  "location": {
+    "lat": 39.1419,
+    "lon": -77.189,
+    "zip": "20877",
+    "displayName": "Gaithersburg, MD"
+  },
+  "activity": "bike",
+  "warnings": {
+    "hasAnyAlert": false,
+    "hasSevereAlert": false,
+    "hasHighRiskAlert": false
+  },
+  "airQuality": {
+    "source": "airnow",
+    "currentAqi": 36
+  },
+  "uv": {
+    "source": "epa-uv"
+  },
+  "recommendations": [
+    {
+      "start": "2026-03-18T14:00:00-04:00",
+      "end": "2026-03-18T16:00:00-04:00",
+      "hours": 2,
+      "averageScore": 84,
+      "why": [
+        "Cooler than preferred",
+        "Wind conditions look good",
+        "Low rain chance"
+      ]
+    }
+  ]
+}
+```
 
 ## Quick Start
 
