@@ -3,15 +3,32 @@
   "version": "1.0.0",
   "description": "Backend API for outdoor activity timing recommendations",
   "main": "src/server.js",
+  "homepage": "https://github.com/vgg-dev/outdoor-activity-api",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/vgg-dev/outdoor-activity-api.git"
+  },
+  "bugs": {
+    "url": "https://github.com/vgg-dev/outdoor-activity-api/issues"
+  },
   "engines": {
     "node": ">=20"
   },
   "scripts": {
     "start": "node src/server.js",
-    "test": "echo \"No tests yet\""
+    "check": "node --check src/server.js && node --check src/config.js && node --check src/scoring.js && node --check src/services/airnow.js && node --check src/services/geocode.js && node --check src/services/uv.js && node --check src/services/weatherGov.js",
+    "test": "npm run check"
   },
-  "keywords": [],
-  "author": "",
+  "keywords": [
+    "weather",
+    "air-quality",
+    "uv-index",
+    "forecast",
+    "express",
+    "render",
+    "outdoors"
+  ],
+  "author": "vgg-dev",
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
