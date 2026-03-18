@@ -9,6 +9,7 @@ const {
 } = require("./config");
 const {
   getHourlyForecast,
+  getPointMetadata,
   getRelativeLocation,
   getActiveAlerts,
   isHighRiskAlert,
@@ -88,11 +89,20 @@ function normalizeCoordinate(value) {
   return Number(value).toFixed(4);
 }
 
-function buildRecommendationCacheKey({ lat, lon, zip, activity }) {
+function buildRecommendationCacheKeyWithPlace({
+  lat,
+  lon,
+  zip,
+  city,
+  state,
+  activity,
+}) {
   return JSON.stringify({
     lat: normalizeCoordinate(lat),
     lon: normalizeCoordinate(lon),
     zip: zip || "",
+    city: String(city || "").trim().toLowerCase(),
+    state: String(state || "").trim().toLowerCase(),
     activity,
   });
 }
@@ -159,7 +169,7 @@ function parseCityState(query) {
     return { error: "city must contain only letters, spaces, periods, apostrophes, or hyphens." };
   }
 
-  if (!/^[A-Za-z]{2,}$/.test(state)) {
+  if (!/^[A-Za-z ]{2,}$/.test(state)) {
     return { error: "state must be a 2-letter abbreviation or state name." };
   }
 
@@ -222,10 +232,12 @@ app.get("/recommendations", rateLimitRecommendations, async (req, res) => {
   const searchedState = String(req.query.state || "").trim();
   const hasRequestedPlace = Boolean(searchedCity && searchedState);
 
-  const cacheKey = buildRecommendationCacheKey({
+  const cacheKey = buildRecommendationCacheKeyWithPlace({
     lat: coords.lat,
     lon: coords.lon,
     zip,
+    city: searchedCity,
+    state: searchedState,
     activity,
   });
   const cached = getCachedRecommendation(cacheKey);
@@ -236,12 +248,15 @@ app.get("/recommendations", rateLimitRecommendations, async (req, res) => {
 
   try {
     const now = Date.now();
-    const [hourlyForecast, relativeLocation, alerts, airQuality, geocodedLocation] = await Promise.all([
-      getHourlyForecast(coords.lat, coords.lon, 24),
-      getRelativeLocation(coords.lat, coords.lon).catch(() => null),
+    const [pointMetadata, alerts, airQuality, geocodedLocation] = await Promise.all([
+      getPointMetadata(coords.lat, coords.lon).catch(() => null),
       getActiveAlerts(coords.lat, coords.lon),
       getAirQuality(coords.lat, coords.lon),
       reverseGeocode(coords.lat, coords.lon).catch(() => null),
+    ]);
+    const [hourlyForecast, relativeLocation] = await Promise.all([
+      getHourlyForecast(coords.lat, coords.lon, 24, pointMetadata),
+      getRelativeLocation(coords.lat, coords.lon, pointMetadata).catch(() => null),
     ]);
 
     const searchLocation = hasRequestedPlace

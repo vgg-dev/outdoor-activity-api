@@ -40,10 +40,9 @@ function parseWindMph(windSpeedText) {
   return Math.max(...matches.map(Number));
 }
 
-async function getHourlyForecast(lat, lon, hours = 24) {
-  const pointsUrl = `${WEATHER_GOV_BASE}/points/${lat},${lon}`;
-  const pointsData = await weatherGovFetch(pointsUrl);
-  const forecastHourlyUrl = pointsData?.properties?.forecastHourly;
+async function getHourlyForecast(lat, lon, hours = 24, pointsData = null) {
+  const resolvedPoints = pointsData || (await getPointMetadata(lat, lon));
+  const forecastHourlyUrl = resolvedPoints?.properties?.forecastHourly;
 
   if (!forecastHourlyUrl) {
     throw new Error("Could not resolve forecastHourly URL from points endpoint.");
@@ -73,10 +72,9 @@ async function getHourlyForecast(lat, lon, hours = 24) {
   }));
 }
 
-async function getRelativeLocation(lat, lon) {
-  const pointsUrl = `${WEATHER_GOV_BASE}/points/${lat},${lon}`;
-  const pointsData = await weatherGovFetch(pointsUrl);
-  const relativeLocation = pointsData?.properties?.relativeLocation?.properties;
+async function getRelativeLocation(lat, lon, pointsData = null) {
+  const resolvedPoints = pointsData || (await getPointMetadata(lat, lon));
+  const relativeLocation = resolvedPoints?.properties?.relativeLocation?.properties;
 
   if (!relativeLocation) {
     return {
@@ -94,6 +92,11 @@ async function getRelativeLocation(lat, lon) {
     state,
     displayName: [place, state].filter(Boolean).join(", ") || null,
   };
+}
+
+async function getPointMetadata(lat, lon) {
+  const pointsUrl = `${WEATHER_GOV_BASE}/points/${lat},${lon}`;
+  return weatherGovFetch(pointsUrl);
 }
 
 async function getActiveAlerts(lat, lon) {
@@ -164,6 +167,7 @@ function isHighRiskAlert(alert = {}) {
 }
 
 module.exports = {
+  getPointMetadata,
   getHourlyForecast,
   getRelativeLocation,
   getActiveAlerts,
