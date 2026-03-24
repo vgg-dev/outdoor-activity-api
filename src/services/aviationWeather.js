@@ -58,6 +58,14 @@ function hasMetarCapability(station = {}) {
   );
 }
 
+function hasTafCapability(station = {}) {
+  return Boolean(
+    Array.isArray(station.siteType) &&
+      station.siteType.includes("TAF") &&
+      station.icaoId
+  );
+}
+
 function toRadians(value) {
   return (value * Math.PI) / 180;
 }
@@ -84,7 +92,9 @@ async function loadStationCache() {
   }
 
   const gzipped = await aviationFetch(STATION_CACHE_URL, "buffer");
-  const stations = decodeGzipJson(gzipped).filter(hasMetarCapability);
+  const stations = decodeGzipJson(gzipped).filter((station) =>
+    hasMetarCapability(station) || hasTafCapability(station)
+  );
 
   stationCache = {
     loadedAt: Date.now(),
@@ -94,26 +104,37 @@ async function loadStationCache() {
   return stations;
 }
 
-async function findNearestMetarStation(lat, lon) {
+async function findNearestStations(lat, lon, predicate, limit = 5) {
   const stations = await loadStationCache();
-  let nearest = null;
+  const matches = [];
 
   for (const station of stations) {
-    const distance = distanceMiles(lat, lon, Number(station.lat), Number(station.lon));
-
-    if (!nearest || distance < nearest.distanceMiles) {
-      nearest = {
-        icaoId: station.icaoId,
-        site: station.site,
-        state: station.state || null,
-        lat: Number(station.lat),
-        lon: Number(station.lon),
-        distanceMiles: Math.round(distance * 10) / 10,
-      };
+    if (!predicate(station)) {
+      continue;
     }
+
+    const distance = distanceMiles(lat, lon, Number(station.lat), Number(station.lon));
+    matches.push({
+      icaoId: station.icaoId,
+      site: station.site,
+      state: station.state || null,
+      lat: Number(station.lat),
+      lon: Number(station.lon),
+      distanceMiles: Math.round(distance * 10) / 10,
+    });
   }
 
-  return nearest;
+  return matches.sort((a, b) => a.distanceMiles - b.distanceMiles).slice(0, limit);
+}
+
+async function findNearestMetarStation(lat, lon) {
+  const stations = await findNearestStations(lat, lon, hasMetarCapability, 1);
+  return stations[0] || null;
+}
+
+async function findNearestTafStation(lat, lon) {
+  const stations = await findNearestStations(lat, lon, hasTafCapability, 1);
+  return stations[0] || null;
 }
 
 function parseVisibilityMiles(value) {
@@ -144,9 +165,49 @@ function parseVisibilityMiles(value) {
   return null;
 }
 
+function getLowestCeilingFeet(clouds = []) {
+  const layers = Array.isArray(clouds) ? clouds : [];
+  const ceilingCovers = new Set(["BKN", "OVC", "OVX"]);
+  const bases = layers
+    .filter((layer) => ceilingCovers.has(String(layer?.cover || "").toUpperCase()))
+    .map((layer) => Number(layer.base))
+    .filter((value) => Number.isFinite(value));
+
+  if (bases.length === 0) {
+    return null;
+  }
+
+  return Math.min(...bases);
+}
+
+function deriveFlightCategory(visibilityMiles, ceilingFeet) {
+  if (
+    (typeof visibilityMiles === "number" && visibilityMiles < 1) ||
+    (typeof ceilingFeet === "number" && ceilingFeet < 500)
+  ) {
+    return "LIFR";
+  }
+
+  if (
+    (typeof visibilityMiles === "number" && visibilityMiles < 3) ||
+    (typeof ceilingFeet === "number" && ceilingFeet < 1000)
+  ) {
+    return "IFR";
+  }
+
+  if (
+    (typeof visibilityMiles === "number" && visibilityMiles <= 5) ||
+    (typeof ceilingFeet === "number" && ceilingFeet <= 3000)
+  ) {
+    return "MVFR";
+  }
+
+  return "VFR";
+}
+
 async function getCurrentAviationConditions(lat, lon) {
-  const station = await findNearestMetarStation(lat, lon);
-  if (!station?.icaoId) {
+  const stations = await findNearestStations(lat, lon, hasMetarCapability, 5);
+  if (stations.length === 0) {
     return {
       source: "aviationweather",
       station: null,
@@ -156,24 +217,96 @@ async function getCurrentAviationConditions(lat, lon) {
     };
   }
 
-  const metarUrl = `${AVIATION_BASE}/metar?ids=${encodeURIComponent(station.icaoId)}&format=json`;
-  const observations = await aviationFetch(metarUrl);
-  const observation = Array.isArray(observations) ? observations[0] : null;
+  for (const station of stations) {
+    const metarUrl = `${AVIATION_BASE}/metar?ids=${encodeURIComponent(station.icaoId)}&format=json`;
+    let observations;
+
+    try {
+      observations = await aviationFetch(metarUrl);
+    } catch {
+      continue;
+    }
+
+    const observation = Array.isArray(observations) ? observations[0] : null;
+    if (!observation) {
+      continue;
+    }
+
+    return {
+      source: "aviationweather",
+      station,
+      visibilityMiles: parseVisibilityMiles(observation?.visib),
+      flightCategory: observation?.fltCat || null,
+      observedAt: observation?.reportTime || null,
+    };
+  }
+
+  return {
+    source: "aviationweather",
+    station: stations[0] || null,
+    visibilityMiles: null,
+    flightCategory: null,
+    observedAt: null,
+  };
+}
+
+async function getAviationForecast(lat, lon) {
+  const station = await findNearestTafStation(lat, lon);
+  if (!station?.icaoId) {
+    return {
+      source: "aviationweather",
+      station: null,
+      issuedAt: null,
+      periods: [],
+    };
+  }
+
+  const tafUrl = `${AVIATION_BASE}/taf?ids=${encodeURIComponent(station.icaoId)}&format=json`;
+  const tafs = await aviationFetch(tafUrl);
+  const taf = Array.isArray(tafs) ? tafs[0] : null;
+  const periods = Array.isArray(taf?.fcsts)
+    ? taf.fcsts.map((period) => {
+        const visibilityMiles = parseVisibilityMiles(period.visib);
+        const ceilingFeet = getLowestCeilingFeet(period.clouds);
+
+        return {
+          startTime: period.timeFrom
+            ? new Date(period.timeFrom * 1000).toISOString()
+            : null,
+          endTime: period.timeTo
+            ? new Date(period.timeTo * 1000).toISOString()
+            : null,
+          visibilityMiles,
+          ceilingFeet,
+          flightCategory:
+            deriveFlightCategory(visibilityMiles, ceilingFeet),
+          windSpeedMph:
+            typeof period.wspd === "number" ? Number(period.wspd) : null,
+          windGustMph:
+            typeof period.wgst === "number" ? Number(period.wgst) : null,
+          weather: period.wxString || null,
+        };
+      })
+    : [];
 
   return {
     source: "aviationweather",
     station,
-    visibilityMiles: parseVisibilityMiles(observation?.visib),
-    flightCategory: observation?.fltCat || null,
-    observedAt: observation?.reportTime || null,
+    issuedAt: taf?.issueTime || null,
+    periods,
   };
 }
 
 module.exports = {
+  getAviationForecast,
   getCurrentAviationConditions,
   __testables: {
+    deriveFlightCategory,
     distanceMiles,
+    findNearestStations,
     hasMetarCapability,
+    hasTafCapability,
+    getLowestCeilingFeet,
     parseVisibilityMiles,
   },
 };
