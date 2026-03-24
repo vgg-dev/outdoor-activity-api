@@ -1,5 +1,6 @@
 function normalizeCoordinate(value) {
-  return Number(value).toFixed(4);
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? String(numeric) : "";
 }
 
 function buildRecommendationCacheKeyWithPlace({

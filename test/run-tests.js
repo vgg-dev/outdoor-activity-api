@@ -10,6 +10,7 @@ const { __testables: weatherGovTestables } = require("../src/services/weatherGov
 const { __testables: usnoTestables } = require("../src/services/usno");
 const {
   buildRecommendationCacheKeyWithPlace,
+  normalizeCoordinate,
   parseCityState,
 } = require("../src/requestUtils");
 const { __testables: serverTestables } = require("../src/server");
@@ -88,6 +89,30 @@ run("keeps explicit city/state requests in separate cache entries", () => {
   });
 
   assert.notEqual(explicit, inferred);
+});
+
+run("keeps nearby coordinates in separate cache entries", () => {
+  const first = buildRecommendationCacheKeyWithPlace({
+    lat: 39.14191,
+    lon: -77.18901,
+    zip: "",
+    city: "",
+    state: "",
+    activity: "hike",
+  });
+
+  const second = buildRecommendationCacheKeyWithPlace({
+    lat: 39.14194,
+    lon: -77.18904,
+    zip: "",
+    city: "",
+    state: "",
+    activity: "hike",
+  });
+
+  assert.notEqual(first, second);
+  assert.equal(normalizeCoordinate(39.14191), "39.14191");
+  assert.equal(normalizeCoordinate(-77.18904), "-77.18904");
 });
 
 run("parses wind gusts from forecast text", () => {
