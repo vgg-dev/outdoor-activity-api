@@ -4,6 +4,7 @@ const ACTIVITY_RULES = {
     preferredMinTemp: 50,
     preferredMaxTemp: 80,
     maxWind: 25,
+    maxWindGust: 32,
     maxRainChance: 40,
     daylightHourPenalty: 16,
     daylightWindowBonus: 8,
@@ -21,6 +22,7 @@ const ACTIVITY_RULES = {
     preferredMinTemp: 45,
     preferredMaxTemp: 85,
     maxWind: 20,
+    maxWindGust: 28,
     maxRainChance: 30,
     daylightHourPenalty: 16,
     daylightWindowBonus: 8,
@@ -38,6 +40,7 @@ const ACTIVITY_RULES = {
     preferredMinTemp: 45,
     preferredMaxTemp: 82,
     maxWind: 18,
+    maxWindGust: 24,
     maxRainChance: 35,
     daylightHourPenalty: 10,
     daylightWindowBonus: 6,
@@ -55,6 +58,7 @@ const ACTIVITY_RULES = {
     preferredMinTemp: 35,
     preferredMaxTemp: 72,
     maxWind: 12,
+    maxWindGust: 18,
     maxRainChance: 10,
     daylightHourPenalty: 26,
     daylightWindowBonus: 12,
@@ -72,6 +76,7 @@ const ACTIVITY_RULES = {
     preferredMinTemp: 40,
     preferredMaxTemp: 90,
     maxWind: 12,
+    maxWindGust: 18,
     maxRainChance: 10,
     daylightHourPenalty: 20,
     daylightWindowBonus: 10,
@@ -146,6 +151,15 @@ function scoreHour(hour, activity, context = {}) {
     }
   }
 
+  if (typeof hour.windGustMph === "number") {
+    if (hour.windGustMph > (rules.maxWindGust || rules.maxWind)) {
+      score -= clamp((hour.windGustMph - (rules.maxWindGust || rules.maxWind)) * 2.5, 0, 35);
+      reasons.push("Gusts may be uncomfortable");
+    } else if (!reasons.includes("Wind conditions look good")) {
+      reasons.push("Gusts look manageable");
+    }
+  }
+
   if (typeof hour.precipitationChance === "number") {
     if (hour.precipitationChance > rules.maxRainChance) {
       score -= clamp((hour.precipitationChance - rules.maxRainChance), 0, 35);
@@ -208,7 +222,9 @@ function scoreHour(hour, activity, context = {}) {
   const isHardStop =
     hasHighRiskAlert ||
     (typeof hour.aqi === "number" && hour.aqi > 180) ||
-    (activity === "drone" && hour.windSpeedMph > 20);
+    (activity === "drone" &&
+      ((typeof hour.windSpeedMph === "number" && hour.windSpeedMph > 20) ||
+        (typeof hour.windGustMph === "number" && hour.windGustMph > 24)));
 
   if (isHardStop) {
     score = Math.min(score, 20);

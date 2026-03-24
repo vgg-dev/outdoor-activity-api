@@ -4,6 +4,8 @@ const {
   getUvForTimestamp,
   __testables,
 } = require("../src/services/uv");
+const { scoreHour } = require("../src/scoring");
+const { __testables: weatherGovTestables } = require("../src/services/weatherGov");
 const {
   buildRecommendationCacheKeyWithPlace,
   parseCityState,
@@ -83,6 +85,38 @@ run("keeps explicit city/state requests in separate cache entries", () => {
   });
 
   assert.notEqual(explicit, inferred);
+});
+
+run("parses wind gusts from forecast text", () => {
+  assert.equal(
+    weatherGovTestables.parseWindGustMph("Sunny. Gusts up to 24 mph."),
+    24
+  );
+  assert.equal(
+    weatherGovTestables.parseWindGustMph("Mostly clear with gusts as high as 18 mph."),
+    18
+  );
+  assert.equal(weatherGovTestables.parseWindGustMph("Calm and clear."), null);
+});
+
+run("penalizes drone hours with strong gusts", () => {
+  const result = scoreHour(
+    {
+      temperatureF: 68,
+      windSpeedMph: 9,
+      windGustMph: 26,
+      precipitationChance: 0,
+      aqi: 25,
+      uvIndex: 2,
+      isDaytime: true,
+      shortForecast: "Sunny",
+    },
+    "drone",
+    { alerts: [], hasHighRiskAlert: false }
+  );
+
+  assert.equal(result.isHardStop, true);
+  assert.ok(result.reasons.includes("Gusts may be uncomfortable"));
 });
 
 console.log("All tests passed.");

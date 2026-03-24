@@ -40,6 +40,21 @@ function parseWindMph(windSpeedText) {
   return Math.max(...matches.map(Number));
 }
 
+function parseWindGustMph(text) {
+  const normalized = String(text || "").toLowerCase();
+  const gustMatch =
+    normalized.match(/gusts?\s+(?:up to\s+)?(\d+)/) ||
+    normalized.match(/gusts?\s+as high as\s+(\d+)/) ||
+    normalized.match(/gusts?\s+(\d+)/);
+
+  if (!gustMatch) {
+    return null;
+  }
+
+  const gust = Number(gustMatch[1]);
+  return Number.isFinite(gust) ? gust : null;
+}
+
 async function getHourlyForecast(lat, lon, hours = 24, pointsData = null) {
   const resolvedPoints = pointsData || (await getPointMetadata(lat, lon));
   const forecastHourlyUrl = resolvedPoints?.properties?.forecastHourly;
@@ -57,6 +72,7 @@ async function getHourlyForecast(lat, lon, hours = 24, pointsData = null) {
     isDaytime: period.isDaytime,
     temperatureF: period.temperature,
     windSpeedMph: parseWindMph(period.windSpeed),
+    windGustMph: parseWindGustMph(period.detailedForecast || period.shortForecast),
     windDirection: period.windDirection,
     shortForecast: period.shortForecast,
     precipitationChance:
@@ -173,4 +189,7 @@ module.exports = {
   getActiveAlerts,
   isUserFacingAlert,
   isHighRiskAlert,
+  __testables: {
+    parseWindGustMph,
+  },
 };
