@@ -100,12 +100,15 @@ run("parses wind gusts from forecast text", () => {
 });
 
 run("maps structured Weather.gov wind gust grid values to hourly UTC keys", () => {
-  const lookup = weatherGovTestables.buildGridHourlyLookup({
-    values: [
-      { validTime: "2026-03-24T18:00:00+00:00/PT2H", value: 32.187 },
-      { validTime: "2026-03-24T20:00:00+00:00/PT1H", value: 24.14 },
-    ],
-  });
+  const lookup = weatherGovTestables.buildGridHourlyLookup(
+    {
+      values: [
+        { validTime: "2026-03-24T18:00:00+00:00/PT2H", value: 32.187 },
+        { validTime: "2026-03-24T20:00:00+00:00/PT1H", value: 24.14 },
+      ],
+    },
+    weatherGovTestables.kmhToMph
+  );
 
   assert.equal(lookup.get("2026-03-24T18"), 20);
   assert.equal(lookup.get("2026-03-24T19"), 20);
@@ -117,6 +120,17 @@ run("parses ISO duration hours for grid intervals", () => {
   assert.equal(weatherGovTestables.parseIsoDurationHours("PT3H"), 3);
   assert.equal(weatherGovTestables.parseIsoDurationHours("P1DT2H"), 26);
   assert.equal(weatherGovTestables.parseIsoDurationHours("PT30M"), 1);
+});
+
+run("converts structured apparent temperature from celsius to fahrenheit", () => {
+  const lookup = weatherGovTestables.buildGridHourlyLookup(
+    {
+      values: [{ validTime: "2026-03-24T18:00:00+00:00/PT1H", value: 10 }],
+    },
+    weatherGovTestables.celsiusToFahrenheit
+  );
+
+  assert.equal(lookup.get("2026-03-24T18"), 50);
 });
 
 run("penalizes drone hours with strong gusts", () => {
@@ -137,6 +151,26 @@ run("penalizes drone hours with strong gusts", () => {
 
   assert.equal(result.isHardStop, true);
   assert.ok(result.reasons.includes("Gusts may be uncomfortable"));
+});
+
+run("uses feels-like temperature when scoring comfort", () => {
+  const result = scoreHour(
+    {
+      temperatureF: 58,
+      feelsLikeF: 39,
+      windSpeedMph: 8,
+      windGustMph: 10,
+      precipitationChance: 0,
+      aqi: 25,
+      uvIndex: 2,
+      isDaytime: true,
+      shortForecast: "Sunny",
+    },
+    "bike",
+    { alerts: [], hasHighRiskAlert: false }
+  );
+
+  assert.ok(result.reasons.includes("Feels cooler than preferred"));
 });
 
 console.log("All tests passed.");

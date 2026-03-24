@@ -89,7 +89,15 @@ function kmhToMph(value) {
   return Math.round(value * 0.621371);
 }
 
-function buildGridHourlyLookup(gridSeries = {}) {
+function celsiusToFahrenheit(value) {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return null;
+  }
+
+  return Math.round((value * 9) / 5 + 32);
+}
+
+function buildGridHourlyLookup(gridSeries = {}, valueMapper = (value) => value) {
   const values = Array.isArray(gridSeries.values) ? gridSeries.values : [];
   const lookup = new Map();
 
@@ -101,9 +109,9 @@ function buildGridHourlyLookup(gridSeries = {}) {
     const [startText, durationText = "PT1H"] = entry.validTime.split("/");
     const start = new Date(startText);
     const hours = Math.max(1, parseIsoDurationHours(durationText));
-    const mphValue = kmhToMph(entry.value);
+    const mappedValue = valueMapper(entry.value);
 
-    if (Number.isNaN(start.getTime()) || mphValue === null) {
+    if (Number.isNaN(start.getTime()) || mappedValue === null) {
       continue;
     }
 
@@ -111,7 +119,7 @@ function buildGridHourlyLookup(gridSeries = {}) {
       const instant = new Date(start.getTime() + hourOffset * 60 * 60 * 1000);
       const key = toUtcHourKey(instant);
       if (key) {
-        lookup.set(key, mphValue);
+        lookup.set(key, mappedValue);
       }
     }
   }
@@ -139,7 +147,14 @@ async function getHourlyForecast(lat, lon, hours = 24, pointsData = null) {
 
   const forecastData = await weatherGovFetch(forecastHourlyUrl);
   const gridData = await getGridData(resolvedPoints).catch(() => null);
-  const windGustLookup = buildGridHourlyLookup(gridData?.properties?.windGust);
+  const windGustLookup = buildGridHourlyLookup(
+    gridData?.properties?.windGust,
+    kmhToMph
+  );
+  const apparentTemperatureLookup = buildGridHourlyLookup(
+    gridData?.properties?.apparentTemperature,
+    celsiusToFahrenheit
+  );
   const periods = forecastData?.properties?.periods || [];
 
   return periods.slice(0, hours).map((period) => ({
@@ -147,6 +162,7 @@ async function getHourlyForecast(lat, lon, hours = 24, pointsData = null) {
     endTime: period.endTime,
     isDaytime: period.isDaytime,
     temperatureF: period.temperature,
+    feelsLikeF: apparentTemperatureLookup.get(toUtcHourKey(period.startTime)) ?? null,
     windSpeedMph: parseWindMph(period.windSpeed),
     windGustMph:
       windGustLookup.get(toUtcHourKey(period.startTime)) ??
@@ -269,6 +285,7 @@ module.exports = {
   isHighRiskAlert,
   __testables: {
     buildGridHourlyLookup,
+    celsiusToFahrenheit,
     kmhToMph,
     parseWindGustMph,
     parseIsoDurationHours,

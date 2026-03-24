@@ -131,14 +131,24 @@ function scoreHour(hour, activity, context = {}) {
   const rules = ACTIVITY_RULES[activity] || ACTIVITY_RULES.hike;
   const reasons = [];
   let score = 100;
+  const comfortTemperature =
+    typeof hour.feelsLikeF === "number" ? hour.feelsLikeF : hour.temperatureF;
+  const temperatureReasonLabel =
+    typeof hour.feelsLikeF === "number"
+      ? "Feels cooler than preferred"
+      : "Cooler than preferred";
+  const heatReasonLabel =
+    typeof hour.feelsLikeF === "number"
+      ? "Feels warmer than preferred"
+      : "Warmer than preferred";
 
-  if (typeof hour.temperatureF === "number") {
-    if (hour.temperatureF < rules.preferredMinTemp) {
-      score -= clamp((rules.preferredMinTemp - hour.temperatureF) * 2, 0, 30);
-      reasons.push("Cooler than preferred");
-    } else if (hour.temperatureF > rules.preferredMaxTemp) {
-      score -= clamp((hour.temperatureF - rules.preferredMaxTemp) * 2, 0, 35);
-      reasons.push("Warmer than preferred");
+  if (typeof comfortTemperature === "number") {
+    if (comfortTemperature < rules.preferredMinTemp) {
+      score -= clamp((rules.preferredMinTemp - comfortTemperature) * 2, 0, 30);
+      reasons.push(temperatureReasonLabel);
+    } else if (comfortTemperature > rules.preferredMaxTemp) {
+      score -= clamp((comfortTemperature - rules.preferredMaxTemp) * 2, 0, 35);
+      reasons.push(heatReasonLabel);
     }
   }
 
