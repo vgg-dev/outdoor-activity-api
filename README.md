@@ -20,9 +20,14 @@ It combines forecast, alerts, air quality, UV, astronomy, and aviation weather d
 
 Outdoor decision-making is scattered across multiple sources: forecast, alerts, air quality, UV, moonlight, and in some cases aviation visibility. This API pulls those signals into one place and turns them into recommendation windows that are easier for a mobile app to explain and trust.
 
-## Preview
+## What The API Produces
 
-![GoTime Outdoor preview](./assets/mobile-preview.svg)
+The API is designed to turn multiple upstream data sources into one recommendation payload with:
+
+- normalized hourly weather, AQI, UV, astronomy, and aviation context
+- activity-aware hourly scores
+- top recommendation windows with plain-language reasons
+- safety overlays such as severe alerts and aviation visibility context
 
 ## Architecture
 
