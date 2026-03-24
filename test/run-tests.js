@@ -5,6 +5,7 @@ const {
   __testables,
 } = require("../src/services/uv");
 const { scoreHour } = require("../src/scoring");
+const { __testables: aviationTestables } = require("../src/services/aviationWeather");
 const { __testables: weatherGovTestables } = require("../src/services/weatherGov");
 const { __testables: usnoTestables } = require("../src/services/usno");
 const {
@@ -219,6 +220,30 @@ run("penalizes astronomy hours with bright moonlight", () => {
   );
 
   assert.ok(brightMoon.score < darkMoon.score);
+});
+
+run("parses aviation visibility strings in miles", () => {
+  assert.equal(aviationTestables.parseVisibilityMiles("10+"), 10);
+  assert.equal(aviationTestables.parseVisibilityMiles("6"), 6);
+  assert.equal(aviationTestables.parseVisibilityMiles("1 1/2"), 1.5);
+  assert.equal(aviationTestables.parseVisibilityMiles("3/4"), 0.75);
+});
+
+run("filters stations for METAR capability", () => {
+  assert.equal(
+    aviationTestables.hasMetarCapability({
+      icaoId: "KDCA",
+      siteType: ["METAR", "TAF"],
+    }),
+    true
+  );
+  assert.equal(
+    aviationTestables.hasMetarCapability({
+      icaoId: null,
+      siteType: ["METAR"],
+    }),
+    false
+  );
 });
 
 console.log("All tests passed.");

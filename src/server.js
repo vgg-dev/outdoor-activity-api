@@ -17,6 +17,7 @@ const {
 const { getAirQuality, getAqiForTimestamp } = require("./services/airnow");
 const { getUvForecastByZip, getUvForTimestamp } = require("./services/uv");
 const { getMoonDataForHours } = require("./services/usno");
+const { getCurrentAviationConditions } = require("./services/aviationWeather");
 const { reverseGeocode, geocodeCityState } = require("./services/geocode");
 const { scoreHour, topWindows, isSupportedActivity } = require("./scoring");
 const {
@@ -189,11 +190,14 @@ app.get("/recommendations", rateLimitRecommendations, async (req, res) => {
 
   try {
     const now = Date.now();
-    const [pointMetadata, alerts, airQuality, geocodedLocation] = await Promise.all([
+    const [pointMetadata, alerts, airQuality, geocodedLocation, aviation] = await Promise.all([
       getPointMetadata(coords.lat, coords.lon).catch(() => null),
       getActiveAlerts(coords.lat, coords.lon),
       getAirQuality(coords.lat, coords.lon),
       reverseGeocode(coords.lat, coords.lon).catch(() => null),
+      ["drone", "astronomy"].includes(activity)
+        ? getCurrentAviationConditions(coords.lat, coords.lon).catch(() => null)
+        : Promise.resolve(null),
     ]);
     const [hourlyForecast, relativeLocation] = await Promise.all([
       getHourlyForecast(coords.lat, coords.lon, 24, pointMetadata),
@@ -277,6 +281,7 @@ app.get("/recommendations", rateLimitRecommendations, async (req, res) => {
       airQuality,
       uv: uvForecast,
       astronomy: moonData,
+      aviation,
       recommendations,
       hourly,
     };

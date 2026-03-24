@@ -16,7 +16,7 @@
   },
   "scripts": {
     "start": "node src/server.js",
-    "check": "node --check src/server.js && node --check src/config.js && node --check src/scoring.js && node --check src/services/airnow.js && node --check src/services/geocode.js && node --check src/services/usno.js && node --check src/services/uv.js && node --check src/services/weatherGov.js",
+    "check": "node --check src/server.js && node --check src/config.js && node --check src/scoring.js && node --check src/services/airnow.js && node --check src/services/aviationWeather.js && node --check src/services/geocode.js && node --check src/services/usno.js && node --check src/services/uv.js && node --check src/services/weatherGov.js",
     "test": "npm run check && node test/run-tests.js"
   },
   "keywords": [
