@@ -8,7 +8,7 @@
 
 US-focused backend API for finding the best times to get outside.
 
-It combines forecast, alerts, air quality, UV, astronomy, and aviation visibility data into activity-aware recommendation windows for:
+It combines forecast, alerts, air quality, UV, astronomy, and aviation weather data into activity-aware recommendation windows for:
 
 - `bike`
 - `hike`
@@ -25,7 +25,7 @@ It combines forecast, alerts, air quality, UV, astronomy, and aviation visibilit
 - AirNow AQI integration
 - EPA UV integration
 - USNO moon illumination and phase enrichment for astronomy
-- Aviation Weather current visibility and flight-category context for drone and astronomy
+- Aviation Weather current METAR visibility plus nearest-airport TAF forecast context for drone and astronomy
 - ZIP, city/state, and coordinate-based location workflows
 - Render-friendly deployment and production hardening
 
@@ -85,7 +85,7 @@ Response includes:
 - `airQuality`
 - `uv`
 - `astronomy` (for astronomy activity)
-- `aviation` (for drone and astronomy)
+- `aviation` (current METAR plus forecast TAF data for drone and astronomy)
 - `recommendations`
 - `hourly`
 
@@ -113,9 +113,24 @@ Example response excerpt:
     "source": "epa-uv"
   },
   "aviation": {
-    "source": "aviationweather",
-    "visibilityMiles": 10,
-    "flightCategory": "VFR"
+    "current": {
+      "source": "aviationweather",
+      "visibilityMiles": 10,
+      "flightCategory": "VFR"
+    },
+    "forecast": {
+      "source": "aviationweather",
+      "issuedAt": "2026-03-24T15:02:00.000Z",
+      "periods": [
+        {
+          "startTime": "2026-03-24T15:00:00.000Z",
+          "endTime": "2026-03-24T20:00:00.000Z",
+          "visibilityMiles": 6,
+          "ceilingFeet": null,
+          "flightCategory": "VFR"
+        }
+      ]
+    }
   },
   "recommendations": [
     {
@@ -196,6 +211,7 @@ Regression tests currently cover:
 - structured Weather.gov apparent temperature parsing
 - USNO moon illumination parsing
 - Aviation Weather visibility parsing
+- Aviation Weather TAF category and ceiling derivation
 
 ## Deploying to Render
 
