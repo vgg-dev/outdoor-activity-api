@@ -18,6 +18,12 @@ const { getAirQuality, getAqiForTimestamp } = require("./services/airnow");
 const { getUvForecastByZip, getUvForTimestamp } = require("./services/uv");
 const { reverseGeocode, geocodeCityState } = require("./services/geocode");
 const { scoreHour, topWindows, isSupportedActivity } = require("./scoring");
+const {
+  buildRecommendationCacheKeyWithPlace,
+  parseCityState,
+  parseLatLon,
+  parseZip,
+} = require("./requestUtils");
 
 const app = express();
 app.disable("x-powered-by");
@@ -85,28 +91,6 @@ function rateLimitRecommendations(req, res, next) {
   next();
 }
 
-function normalizeCoordinate(value) {
-  return Number(value).toFixed(4);
-}
-
-function buildRecommendationCacheKeyWithPlace({
-  lat,
-  lon,
-  zip,
-  city,
-  state,
-  activity,
-}) {
-  return JSON.stringify({
-    lat: normalizeCoordinate(lat),
-    lon: normalizeCoordinate(lon),
-    zip: zip || "",
-    city: String(city || "").trim().toLowerCase(),
-    state: String(state || "").trim().toLowerCase(),
-    activity,
-  });
-}
-
 function getCachedRecommendation(key) {
   const cached = recommendationCache.get(key);
   if (!cached) {
@@ -131,50 +115,6 @@ function setCachedRecommendation(key, payload) {
 app.use(cors(buildCorsOptions()));
 app.use(securityHeaders);
 app.use(express.json());
-
-function parseLatLon(query) {
-  const lat = Number(query.lat);
-  const lon = Number(query.lon);
-
-  if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
-    return { error: "Query params lat and lon are required numeric values." };
-  }
-
-  if (lat < -90 || lat > 90 || lon < -180 || lon > 180) {
-    return { error: "lat must be [-90..90] and lon must be [-180..180]." };
-  }
-
-  return { lat, lon };
-}
-
-function parseZip(query) {
-  const zip = query.zip ? String(query.zip).trim() : "";
-  if (!zip) return null;
-  return /^\d{5}$/.test(zip) ? zip : "__invalid__";
-}
-
-function parseCityState(query) {
-  const city = String(query.city || "").trim();
-  const state = String(query.state || "").trim();
-
-  if (!city && !state) {
-    return null;
-  }
-
-  if (!city || !state) {
-    return { error: "city and state are both required for city search." };
-  }
-
-  if (!/^[A-Za-z .'-]{2,}$/.test(city)) {
-    return { error: "city must contain only letters, spaces, periods, apostrophes, or hyphens." };
-  }
-
-  if (!/^[A-Za-z ]{2,}$/.test(state)) {
-    return { error: "state must be a 2-letter abbreviation or state name." };
-  }
-
-  return { city, state };
-}
 
 app.get("/health", (_req, res) => {
   res.json({ ok: true, service: "outdoor-activity-api" });

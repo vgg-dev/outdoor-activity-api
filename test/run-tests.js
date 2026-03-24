@@ -4,6 +4,10 @@ const {
   getUvForTimestamp,
   __testables,
 } = require("../src/services/uv");
+const {
+  buildRecommendationCacheKeyWithPlace,
+  parseCityState,
+} = require("../src/requestUtils");
 
 function run(name, fn) {
   try {
@@ -50,6 +54,35 @@ run("parses 12 AM and 12 PM correctly from EPA hour strings", () => {
     day: 24,
     hour: 12,
   });
+});
+
+run("accepts multi-word state names in city search parsing", () => {
+  assert.deepEqual(parseCityState({ city: "New York", state: "New York" }), {
+    city: "New York",
+    state: "New York",
+  });
+});
+
+run("keeps explicit city/state requests in separate cache entries", () => {
+  const explicit = buildRecommendationCacheKeyWithPlace({
+    lat: 39.1434,
+    lon: -77.189,
+    zip: "20877",
+    city: "Gaithersburg",
+    state: "MD",
+    activity: "bike",
+  });
+
+  const inferred = buildRecommendationCacheKeyWithPlace({
+    lat: 39.1434,
+    lon: -77.189,
+    zip: "20877",
+    city: "",
+    state: "",
+    activity: "bike",
+  });
+
+  assert.notEqual(explicit, inferred);
 });
 
 console.log("All tests passed.");
