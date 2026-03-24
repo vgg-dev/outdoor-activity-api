@@ -12,6 +12,7 @@ const {
   buildRecommendationCacheKeyWithPlace,
   parseCityState,
 } = require("../src/requestUtils");
+const { __testables: serverTestables } = require("../src/server");
 
 function run(name, fn) {
   try {
@@ -243,6 +244,62 @@ run("filters stations for METAR capability", () => {
       siteType: ["METAR"],
     }),
     false
+  );
+});
+
+run("filters stations for TAF capability", () => {
+  assert.equal(
+    aviationTestables.hasTafCapability({
+      icaoId: "KDCA",
+      siteType: ["METAR", "TAF"],
+    }),
+    true
+  );
+  assert.equal(
+    aviationTestables.hasTafCapability({
+      icaoId: "KABC",
+      siteType: ["METAR"],
+    }),
+    false
+  );
+});
+
+run("derives flight category from visibility and ceiling", () => {
+  assert.equal(aviationTestables.deriveFlightCategory(10, 5000), "VFR");
+  assert.equal(aviationTestables.deriveFlightCategory(4, 5000), "MVFR");
+  assert.equal(aviationTestables.deriveFlightCategory(2, 1500), "IFR");
+  assert.equal(aviationTestables.deriveFlightCategory(0.5, 400), "LIFR");
+});
+
+run("finds the lowest ceiling from broken and overcast layers", () => {
+  assert.equal(
+    aviationTestables.getLowestCeilingFeet([
+      { cover: "FEW", base: 500 },
+      { cover: "BKN", base: 2500 },
+      { cover: "OVC", base: 1800 },
+    ]),
+    1800
+  );
+});
+
+run("skips caching daytime payloads when UV series is empty", () => {
+  assert.equal(
+    serverTestables.shouldCachePayload({
+      uv: { hourlyByTimestamp: {} },
+      hourly: [
+        { isDaytime: true, startTime: "2026-03-24T12:00:00-05:00" },
+        { isDaytime: false, startTime: "2026-03-24T20:00:00-05:00" },
+      ],
+    }),
+    false
+  );
+
+  assert.equal(
+    serverTestables.shouldCachePayload({
+      uv: { hourlyByTimestamp: {} },
+      hourly: [{ isDaytime: false, startTime: "2026-03-24T20:00:00-05:00" }],
+    }),
+    true
   );
 });
 

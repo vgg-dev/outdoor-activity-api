@@ -17,7 +17,10 @@ const {
 const { getAirQuality, getAqiForTimestamp } = require("./services/airnow");
 const { getUvForecastByZip, getUvForTimestamp } = require("./services/uv");
 const { getMoonDataForHours } = require("./services/usno");
-const { getCurrentAviationConditions } = require("./services/aviationWeather");
+const {
+  getAviationForecast,
+  getCurrentAviationConditions,
+} = require("./services/aviationWeather");
 const { reverseGeocode, geocodeCityState } = require("./services/geocode");
 const { scoreHour, topWindows, isSupportedActivity } = require("./scoring");
 const {
@@ -114,6 +117,22 @@ function setCachedRecommendation(key, payload) {
   });
 }
 
+function shouldCachePayload(payload) {
+  const hourly = Array.isArray(payload?.hourly) ? payload.hourly : [];
+  const uvEntries =
+    payload?.uv?.hourlyByTimestamp &&
+    typeof payload.uv.hourlyByTimestamp === "object"
+      ? Object.keys(payload.uv.hourlyByTimestamp)
+      : [];
+  const hasDaytimeHours = hourly.some((hour) => hour?.isDaytime);
+
+  if (hasDaytimeHours && uvEntries.length === 0) {
+    return false;
+  }
+
+  return true;
+}
+
 app.use(cors(buildCorsOptions()));
 app.use(securityHeaders);
 app.use(express.json());
@@ -190,13 +209,23 @@ app.get("/recommendations", rateLimitRecommendations, async (req, res) => {
 
   try {
     const now = Date.now();
-    const [pointMetadata, alerts, airQuality, geocodedLocation, aviation] = await Promise.all([
+    const [
+      pointMetadata,
+      alerts,
+      airQuality,
+      geocodedLocation,
+      aviationCurrent,
+      aviationForecast,
+    ] = await Promise.all([
       getPointMetadata(coords.lat, coords.lon).catch(() => null),
       getActiveAlerts(coords.lat, coords.lon),
       getAirQuality(coords.lat, coords.lon),
       reverseGeocode(coords.lat, coords.lon).catch(() => null),
       ["drone", "astronomy"].includes(activity)
         ? getCurrentAviationConditions(coords.lat, coords.lon).catch(() => null)
+        : Promise.resolve(null),
+      ["drone", "astronomy"].includes(activity)
+        ? getAviationForecast(coords.lat, coords.lon).catch(() => null)
         : Promise.resolve(null),
     ]);
     const [hourlyForecast, relativeLocation] = await Promise.all([
@@ -281,12 +310,20 @@ app.get("/recommendations", rateLimitRecommendations, async (req, res) => {
       airQuality,
       uv: uvForecast,
       astronomy: moonData,
-      aviation,
+      aviation:
+        aviationCurrent || aviationForecast
+          ? {
+              current: aviationCurrent,
+              forecast: aviationForecast,
+            }
+          : null,
       recommendations,
       hourly,
     };
 
-    setCachedRecommendation(cacheKey, payload);
+    if (shouldCachePayload(payload)) {
+      setCachedRecommendation(cacheKey, payload);
+    }
     res.setHeader("X-Cache", "MISS");
     return res.json(payload);
   } catch (error) {
@@ -311,6 +348,15 @@ app.use((error, _req, res, next) => {
   return next(error);
 });
 
-app.listen(port, () => {
-  console.log(`API running at http://localhost:${port}`);
-});
+if (require.main === module) {
+  app.listen(port, () => {
+    console.log(`API running at http://localhost:${port}`);
+  });
+}
+
+module.exports = {
+  app,
+  __testables: {
+    shouldCachePayload,
+  },
+};
