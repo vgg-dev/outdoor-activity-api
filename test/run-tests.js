@@ -99,6 +99,26 @@ run("parses wind gusts from forecast text", () => {
   assert.equal(weatherGovTestables.parseWindGustMph("Calm and clear."), null);
 });
 
+run("maps structured Weather.gov wind gust grid values to hourly UTC keys", () => {
+  const lookup = weatherGovTestables.buildGridHourlyLookup({
+    values: [
+      { validTime: "2026-03-24T18:00:00+00:00/PT2H", value: 32.187 },
+      { validTime: "2026-03-24T20:00:00+00:00/PT1H", value: 24.14 },
+    ],
+  });
+
+  assert.equal(lookup.get("2026-03-24T18"), 20);
+  assert.equal(lookup.get("2026-03-24T19"), 20);
+  assert.equal(lookup.get("2026-03-24T20"), 15);
+});
+
+run("parses ISO duration hours for grid intervals", () => {
+  assert.equal(weatherGovTestables.parseIsoDurationHours("PT1H"), 1);
+  assert.equal(weatherGovTestables.parseIsoDurationHours("PT3H"), 3);
+  assert.equal(weatherGovTestables.parseIsoDurationHours("P1DT2H"), 26);
+  assert.equal(weatherGovTestables.parseIsoDurationHours("PT30M"), 1);
+});
+
 run("penalizes drone hours with strong gusts", () => {
   const result = scoreHour(
     {

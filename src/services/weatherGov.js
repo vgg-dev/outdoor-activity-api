@@ -55,6 +55,80 @@ function parseWindGustMph(text) {
   return Number.isFinite(gust) ? gust : null;
 }
 
+function toUtcHourKey(timestamp) {
+  const date = new Date(timestamp);
+  if (Number.isNaN(date.getTime())) {
+    return null;
+  }
+
+  return date.toISOString().slice(0, 13);
+}
+
+function parseIsoDurationHours(durationText) {
+  const normalized = String(durationText || "");
+  const match = normalized.match(
+    /^P(?:(\d+)D)?(?:T(?:(\d+)H)?(?:(\d+)M)?)?$/
+  );
+
+  if (!match) {
+    return 0;
+  }
+
+  const days = Number(match[1] || 0);
+  const hours = Number(match[2] || 0);
+  const minutes = Number(match[3] || 0);
+
+  return days * 24 + hours + (minutes > 0 ? 1 : 0);
+}
+
+function kmhToMph(value) {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return null;
+  }
+
+  return Math.round(value * 0.621371);
+}
+
+function buildGridHourlyLookup(gridSeries = {}) {
+  const values = Array.isArray(gridSeries.values) ? gridSeries.values : [];
+  const lookup = new Map();
+
+  for (const entry of values) {
+    if (!entry || typeof entry.validTime !== "string") {
+      continue;
+    }
+
+    const [startText, durationText = "PT1H"] = entry.validTime.split("/");
+    const start = new Date(startText);
+    const hours = Math.max(1, parseIsoDurationHours(durationText));
+    const mphValue = kmhToMph(entry.value);
+
+    if (Number.isNaN(start.getTime()) || mphValue === null) {
+      continue;
+    }
+
+    for (let hourOffset = 0; hourOffset < hours; hourOffset += 1) {
+      const instant = new Date(start.getTime() + hourOffset * 60 * 60 * 1000);
+      const key = toUtcHourKey(instant);
+      if (key) {
+        lookup.set(key, mphValue);
+      }
+    }
+  }
+
+  return lookup;
+}
+
+async function getGridData(pointsData) {
+  const forecastGridDataUrl = pointsData?.properties?.forecastGridData;
+
+  if (!forecastGridDataUrl) {
+    return null;
+  }
+
+  return weatherGovFetch(forecastGridDataUrl);
+}
+
 async function getHourlyForecast(lat, lon, hours = 24, pointsData = null) {
   const resolvedPoints = pointsData || (await getPointMetadata(lat, lon));
   const forecastHourlyUrl = resolvedPoints?.properties?.forecastHourly;
@@ -64,6 +138,8 @@ async function getHourlyForecast(lat, lon, hours = 24, pointsData = null) {
   }
 
   const forecastData = await weatherGovFetch(forecastHourlyUrl);
+  const gridData = await getGridData(resolvedPoints).catch(() => null);
+  const windGustLookup = buildGridHourlyLookup(gridData?.properties?.windGust);
   const periods = forecastData?.properties?.periods || [];
 
   return periods.slice(0, hours).map((period) => ({
@@ -72,7 +148,9 @@ async function getHourlyForecast(lat, lon, hours = 24, pointsData = null) {
     isDaytime: period.isDaytime,
     temperatureF: period.temperature,
     windSpeedMph: parseWindMph(period.windSpeed),
-    windGustMph: parseWindGustMph(period.detailedForecast || period.shortForecast),
+    windGustMph:
+      windGustLookup.get(toUtcHourKey(period.startTime)) ??
+      parseWindGustMph(period.detailedForecast || period.shortForecast),
     windDirection: period.windDirection,
     shortForecast: period.shortForecast,
     precipitationChance:
@@ -190,6 +268,10 @@ module.exports = {
   isUserFacingAlert,
   isHighRiskAlert,
   __testables: {
+    buildGridHourlyLookup,
+    kmhToMph,
     parseWindGustMph,
+    parseIsoDurationHours,
+    toUtcHourKey,
   },
 };
