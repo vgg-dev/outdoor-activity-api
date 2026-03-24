@@ -110,15 +110,25 @@ function hourKeyFromIsoTimestamp(isoTimestamp) {
 
 async function getUvForecastByZip(zip) {
   if (!zip || !/^\d{5}$/.test(String(zip))) {
-    return {
-      source: "epa-uv",
-      hourlyByTimestamp: {},
-    };
+    return emptyUvForecast();
   }
 
   const url = `${UV_BASE}/${zip}/JSON`;
   const payload = await uvFetch(url).catch(() => []);
   const rows = Array.isArray(payload) ? payload : payload.value || [];
+
+  return buildUvForecastFromRows(rows);
+}
+
+function emptyUvForecast() {
+  return {
+    source: "epa-uv",
+    hourlyByTimestamp: {},
+    hourlyByHourKey: {},
+  };
+}
+
+function buildUvForecastFromRows(rows) {
   const hourlyByTimestamp = {};
   const hourlyByHourKey = {};
 
@@ -155,4 +165,10 @@ function getUvForTimestamp(isoTimestamp, uv) {
 module.exports = {
   getUvForecastByZip,
   getUvForTimestamp,
+  __testables: {
+    buildUvForecastFromRows,
+    emptyUvForecast,
+    hourKeyFromIsoTimestamp,
+    parseLocalHourParts,
+  },
 };
