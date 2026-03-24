@@ -8,7 +8,7 @@
 
 US-focused backend API for finding the best times to get outside.
 
-It combines forecast, alerts, air quality, and UV data into activity-aware recommendation windows for:
+It combines forecast, alerts, air quality, UV, astronomy, and aviation visibility data into activity-aware recommendation windows for:
 
 - `bike`
 - `hike`
@@ -21,8 +21,11 @@ It combines forecast, alerts, air quality, and UV data into activity-aware recom
 - Hour-by-hour scoring for the next 24 hours
 - Top recommendation windows instead of single "best hours"
 - Weather.gov alert awareness with high-risk filtering
+- Structured wind gust and feels-like temperature enrichment from Weather.gov grid data
 - AirNow AQI integration
 - EPA UV integration
+- USNO moon illumination and phase enrichment for astronomy
+- Aviation Weather current visibility and flight-category context for drone and astronomy
 - ZIP, city/state, and coordinate-based location workflows
 - Render-friendly deployment and production hardening
 
@@ -31,6 +34,8 @@ It combines forecast, alerts, air quality, and UV data into activity-aware recom
 - [Weather.gov](https://www.weather.gov/documentation/services-web-api)
 - [AirNow API](https://docs.airnowapi.org/)
 - [EPA UV data](https://www.epa.gov/enviro/web-services)
+- [USNO Astronomical Applications API](https://aa.usno.navy.mil/data/api)
+- [Aviation Weather Center Data API](https://aviationweather.gov/data/api/)
 - [Zippopotam.us](https://www.zippopotam.us/)
 - [U.S. Census Geocoder](https://geocoding.geo.census.gov/)
 
@@ -79,6 +84,8 @@ Response includes:
 - `warnings`
 - `airQuality`
 - `uv`
+- `astronomy` (for astronomy activity)
+- `aviation` (for drone and astronomy)
 - `recommendations`
 - `hourly`
 
@@ -104,6 +111,11 @@ Example response excerpt:
   },
   "uv": {
     "source": "epa-uv"
+  },
+  "aviation": {
+    "source": "aviationweather",
+    "visibilityMiles": 10,
+    "flightCategory": "VFR"
   },
   "recommendations": [
     {
@@ -175,6 +187,16 @@ npm test
 
 Current test coverage is lightweight and focused on syntax/entrypoint validation. Functional API smoke tests are still manual.
 
+Regression tests currently cover:
+
+- UV hourly matching without timezone drift
+- multi-word city/state parsing
+- cache key separation for explicit place requests
+- structured Weather.gov gust parsing
+- structured Weather.gov apparent temperature parsing
+- USNO moon illumination parsing
+- Aviation Weather visibility parsing
+
 ## Deploying to Render
 
 This repo includes [render.yaml](./render.yaml), but the easiest path for most users is a standard Render Web Service.
@@ -213,6 +235,7 @@ If your Render plan supports Blueprints, this repo is already set up for that vi
 - upstream timeouts
 - short-lived response caching
 - safer external API error handling
+- backend-only integration for providers that do not permit browser CORS
 
 ## Project Structure
 
@@ -223,7 +246,9 @@ src/
   server.js
   services/
     airnow.js
+    aviationWeather.js
     geocode.js
+    usno.js
     uv.js
     weatherGov.js
 ```
