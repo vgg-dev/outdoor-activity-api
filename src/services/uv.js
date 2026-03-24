@@ -36,7 +36,7 @@ function normalizeHourlyValue(value) {
   return Number.isFinite(numeric) ? numeric : null;
 }
 
-function parseLocalHour(dateTimeValue) {
+function parseLocalHourParts(dateTimeValue) {
   const text = String(dateTimeValue || "").trim();
   const match = text.match(
     /^([A-Za-z]{3})\/(\d{1,2})\/(\d{4})\s+(\d{1,2})\s+(AM|PM)$/
@@ -67,17 +67,45 @@ function parseLocalHour(dateTimeValue) {
   if (meridiem === "PM" && hour !== 12) hour += 12;
   if (meridiem === "AM" && hour === 12) hour = 0;
 
-  const date = new Date(
-    Number(yearText),
-    month,
-    Number(dayText),
+  return {
+    year: Number(yearText),
+    month: month + 1,
+    day: Number(dayText),
     hour,
-    0,
-    0,
-    0
+  };
+}
+
+function toHourKey(parts) {
+  if (!parts) return null;
+
+  const year = String(parts.year).padStart(4, "0");
+  const month = String(parts.month).padStart(2, "0");
+  const day = String(parts.day).padStart(2, "0");
+  const hour = String(parts.hour).padStart(2, "0");
+
+  return `${year}-${month}-${day}-${hour}`;
+}
+
+function toHourTimestamp(parts) {
+  if (!parts) return null;
+
+  const year = String(parts.year).padStart(4, "0");
+  const month = String(parts.month).padStart(2, "0");
+  const day = String(parts.day).padStart(2, "0");
+  const hour = String(parts.hour).padStart(2, "0");
+
+  return `${year}-${month}-${day}T${hour}:00:00`;
+}
+
+function hourKeyFromIsoTimestamp(isoTimestamp) {
+  const match = String(isoTimestamp || "").match(
+    /^(\d{4})-(\d{2})-(\d{2})T(\d{2})/
   );
 
-  return Number.isNaN(date.getTime()) ? null : date;
+  if (!match) return null;
+
+  const [, year, month, day, hour] = match;
+  return `${year}-${month}-${day}-${hour}`;
 }
 
 async function getUvForecastByZip(zip) {
@@ -92,53 +120,36 @@ async function getUvForecastByZip(zip) {
   const payload = await uvFetch(url).catch(() => []);
   const rows = Array.isArray(payload) ? payload : payload.value || [];
   const hourlyByTimestamp = {};
+  const hourlyByHourKey = {};
 
   for (const row of rows) {
-    const hourDate = parseLocalHour(row.DATE_TIME);
+    const hourParts = parseLocalHourParts(row.DATE_TIME);
     const uvIndex = normalizeHourlyValue(
       row.UV_VALUE ?? row.UVINDEX ?? row.UV_INDEX
     );
 
-    if (!hourDate || uvIndex === null) continue;
-    hourlyByTimestamp[hourDate.toISOString()] = uvIndex;
+    if (!hourParts || uvIndex === null) continue;
+
+    const hourKey = toHourKey(hourParts);
+    const hourTimestamp = toHourTimestamp(hourParts);
+
+    if (!hourKey || !hourTimestamp) continue;
+    hourlyByHourKey[hourKey] = uvIndex;
+    hourlyByTimestamp[hourTimestamp] = uvIndex;
   }
 
   return {
     source: "epa-uv",
     hourlyByTimestamp,
+    hourlyByHourKey,
   };
 }
 
 function getUvForTimestamp(isoTimestamp, uv) {
-  const targetHour = new Date(isoTimestamp);
-  if (Number.isNaN(targetHour.getTime())) {
-    return null;
-  }
+  const targetKey = hourKeyFromIsoTimestamp(isoTimestamp);
+  if (!targetKey) return null;
 
-  const targetKey = [
-    targetHour.getFullYear(),
-    targetHour.getMonth(),
-    targetHour.getDate(),
-    targetHour.getHours(),
-  ].join("-");
-
-  for (const [timestamp, uvValue] of Object.entries(uv.hourlyByTimestamp || {})) {
-    const sourceHour = new Date(timestamp);
-    if (Number.isNaN(sourceHour.getTime())) continue;
-
-    const sourceKey = [
-      sourceHour.getFullYear(),
-      sourceHour.getMonth(),
-      sourceHour.getDate(),
-      sourceHour.getHours(),
-    ].join("-");
-
-    if (sourceKey === targetKey) {
-      return uvValue;
-    }
-  }
-
-  return null;
+  return uv.hourlyByHourKey?.[targetKey] ?? null;
 }
 
 module.exports = {
