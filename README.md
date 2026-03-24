@@ -16,6 +16,29 @@ It combines forecast, alerts, air quality, UV, astronomy, and aviation weather d
 - `astronomy`
 - `drone`
 
+## Why This Exists
+
+Outdoor decision-making is scattered across multiple sources: forecast, alerts, air quality, UV, moonlight, and in some cases aviation visibility. This API pulls those signals into one place and turns them into recommendation windows that are easier for a mobile app to explain and trust.
+
+## Preview
+
+![GoTime Outdoor preview](./assets/mobile-preview.svg)
+
+## Architecture
+
+```mermaid
+flowchart LR
+  Client["Mobile / Web Client"] --> API["Outdoor Activity API"]
+  API --> NWS["Weather.gov\nforecast, alerts, grid data"]
+  API --> AirNow["AirNow\nAQI"]
+  API --> EPA["EPA UV\nhourly UV"]
+  API --> USNO["USNO\nmoon phase + illumination"]
+  API --> AWC["Aviation Weather\nMETAR + TAF"]
+  API --> Geo["Zippopotam.us / Census\nlocation search + reverse geocode"]
+  API --> Score["Scoring Engine\nwindows, safety, comfort"]
+  Score --> Client
+```
+
 ## Highlights
 
 - Hour-by-hour scoring for the next 24 hours
@@ -28,6 +51,21 @@ It combines forecast, alerts, air quality, UV, astronomy, and aviation weather d
 - Aviation Weather current METAR visibility plus nearest-airport TAF forecast context for drone and astronomy
 - ZIP, city/state, and coordinate-based location workflows
 - Render-friendly deployment and production hardening
+
+## Current Capabilities
+
+- [x] ZIP lookup
+- [x] City/state lookup
+- [x] GPS-style coordinate requests
+- [x] Weather.gov forecast and alerts
+- [x] AirNow AQI
+- [x] EPA UV
+- [x] Weather.gov wind gusts
+- [x] Weather.gov feels-like temperature
+- [x] USNO moon illumination and phase
+- [x] Aviation Weather METAR visibility
+- [x] Aviation Weather TAF forecast summary
+- [x] Activity-aware scoring for `bike`, `hike`, `fishing`, `astronomy`, and `drone`
 
 ## Data Sources
 
@@ -148,6 +186,25 @@ Example response excerpt:
 }
 ```
 
+## Activity Examples
+
+### Bike
+
+- Prefers comfortable temperatures, manageable wind, good AQI, and daylight
+- Uses structured gusts and feels-like temperature to avoid “looks nice on paper” false positives
+
+### Drone
+
+- Uses stricter wind and gust thresholds
+- Surfaces aviation visibility and TAF forecast context
+- Treats severe alerts and unsafe wind as hard stops
+
+### Astronomy
+
+- Prefers nighttime and clearer skies
+- Uses moon phase and illumination from USNO
+- Adds aviation visibility as a helpful haze/clarity signal
+
 ## Quick Start
 
 ### 1. Install
@@ -212,6 +269,14 @@ Regression tests currently cover:
 - USNO moon illumination parsing
 - Aviation Weather visibility parsing
 - Aviation Weather TAF category and ceiling derivation
+- cache behavior for UV edge cases
+
+## API Behavior Notes
+
+- UV may be `null` at night after the upstream hourly UV series ends; this is normal and should be treated as no UV risk, not a daytime failure.
+- Aviation data is advisory and best-effort. Nearby stations sometimes have incomplete observations, so the API falls back to other nearby METAR stations when needed.
+- TAF data is airport-based forecast context, not a hyperlocal surface forecast for every coordinate.
+- Astronomy and aviation enrichments are scoped to the activities that actually benefit from them, rather than affecting every recommendation equally.
 
 ## Deploying to Render
 
@@ -252,6 +317,13 @@ If your Render plan supports Blueprints, this repo is already set up for that vi
 - short-lived response caching
 - safer external API error handling
 - backend-only integration for providers that do not permit browser CORS
+
+## Roadmap
+
+- Visibility-aware scoring for drone and astronomy
+- Richer astronomy response examples in the docs
+- Broader API regression coverage beyond parser-focused tests
+- Optional persistent caching layer for production deployments
 
 ## Project Structure
 

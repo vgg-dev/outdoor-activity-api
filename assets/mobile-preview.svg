@@ -1,0 +1,35 @@
+<svg width="1200" height="720" viewBox="0 0 1200 720" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1200" height="720" rx="32" fill="#F4EFE6"/>
+  <rect x="50" y="50" width="1100" height="620" rx="28" fill="#FFFDF8" stroke="#EADFCF" stroke-width="2"/>
+  <text x="92" y="120" fill="#1F2937" font-family="Arial, sans-serif" font-size="44" font-weight="700">GoTime Outdoor</text>
+  <text x="92" y="158" fill="#7C6B58" font-family="Arial, sans-serif" font-size="20">Mobile client powered by the Outdoor Activity API</text>
+
+  <rect x="92" y="205" width="300" height="120" rx="22" fill="#23395B"/>
+  <text x="118" y="242" fill="#D7E6FF" font-family="Arial, sans-serif" font-size="16" font-weight="700">BEST WINDOW</text>
+  <text x="118" y="288" fill="#FFFFFF" font-family="Arial, sans-serif" font-size="34" font-weight="700">Today 3–5 PM</text>
+  <text x="118" y="316" fill="#D7E6FF" font-family="Arial, sans-serif" font-size="18">Bike • Score 92 • AQI Good</text>
+
+  <rect x="420" y="205" width="290" height="120" rx="22" fill="#EAF7ED" stroke="#B7E2C0"/>
+  <text x="446" y="242" fill="#166534" font-family="Arial, sans-serif" font-size="16" font-weight="700">AIR QUALITY</text>
+  <text x="446" y="288" fill="#14532D" font-family="Arial, sans-serif" font-size="34" font-weight="700">Good</text>
+  <text x="446" y="316" fill="#166534" font-family="Arial, sans-serif" font-size="18">AQI 33 • hourly fallback ready</text>
+
+  <rect x="738" y="205" width="320" height="120" rx="22" fill="#EEF4FF" stroke="#C6DAFF"/>
+  <text x="764" y="242" fill="#1D4ED8" font-family="Arial, sans-serif" font-size="16" font-weight="700">AVIATION / ASTRONOMY</text>
+  <text x="764" y="288" fill="#1E3A8A" font-family="Arial, sans-serif" font-size="30" font-weight="700">METAR + TAF + Moon</text>
+  <text x="764" y="316" fill="#1D4ED8" font-family="Arial, sans-serif" font-size="18">Visibility, ceiling, phase, illumination</text>
+
+  <rect x="92" y="365" width="966" height="238" rx="22" fill="#FAF6EF" stroke="#EADFCF"/>
+  <text x="118" y="405" fill="#9A7B57" font-family="Arial, sans-serif" font-size="18" font-weight="700">API POWERS</text>
+  <text x="118" y="452" fill="#1F2937" font-family="Arial, sans-serif" font-size="28" font-weight="700">Weather.gov • AirNow • EPA UV • USNO • Aviation Weather</text>
+  <text x="118" y="492" fill="#4B5563" font-family="Arial, sans-serif" font-size="22">One backend merges safety, comfort, air, sun, moon, and aviation context</text>
+
+  <rect x="118" y="530" width="180" height="42" rx="21" fill="#EFE6D7"/>
+  <text x="142" y="557" fill="#6B4F32" font-family="Arial, sans-serif" font-size="18" font-weight="700">ZIP / City / GPS</text>
+  <rect x="316" y="530" width="210" height="42" rx="21" fill="#EFE6D7"/>
+  <text x="340" y="557" fill="#6B4F32" font-family="Arial, sans-serif" font-size="18" font-weight="700">AQI + UV + Alerts</text>
+  <rect x="544" y="530" width="230" height="42" rx="21" fill="#EFE6D7"/>
+  <text x="568" y="557" fill="#6B4F32" font-family="Arial, sans-serif" font-size="18" font-weight="700">Gusts + Feels Like</text>
+  <rect x="792" y="530" width="230" height="42" rx="21" fill="#EFE6D7"/>
+  <text x="816" y="557" fill="#6B4F32" font-family="Arial, sans-serif" font-size="18" font-weight="700">Moon + TAF Cards</text>
+</svg>
