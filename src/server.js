@@ -16,6 +16,7 @@ const {
 } = require("./services/weatherGov");
 const { getAirQuality, getAqiForTimestamp } = require("./services/airnow");
 const { getUvForecastByZip, getUvForTimestamp } = require("./services/uv");
+const { getMoonDataForHours } = require("./services/usno");
 const { reverseGeocode, geocodeCityState } = require("./services/geocode");
 const { scoreHour, topWindows, isSupportedActivity } = require("./scoring");
 const {
@@ -210,17 +211,29 @@ app.get("/recommendations", rateLimitRecommendations, async (req, res) => {
         ? await geocodeCityState(resolvedLocation.place, resolvedLocation.state).catch(() => null)
         : null;
     const effectiveZip = zip || derivedZipLookup?.zip || null;
-    const uvForecast = await getUvForecastByZip(effectiveZip);
+    const [uvForecast, moonData] = await Promise.all([
+      getUvForecastByZip(effectiveZip),
+      activity === "astronomy"
+        ? getMoonDataForHours(hourlyForecast, coords.lat, coords.lon)
+        : Promise.resolve({ source: "usno", dailyByDate: {} }),
+    ]);
 
     const hasHighRiskAlert = alerts.some(isHighRiskAlert);
 
     const hourly = hourlyForecast
       .filter((hour) => Date.parse(hour.endTime) > now)
       .map((hour) => {
+      const localDate = hour.startTime.slice(0, 10);
+      const moonForDate = moonData.dailyByDate?.[localDate] || null;
       const aqi = getAqiForTimestamp(hour.startTime, airQuality);
       const uvIndex = getUvForTimestamp(hour.startTime, uvForecast);
       const scored = scoreHour(
-        { ...hour, aqi, uvIndex },
+        {
+          ...hour,
+          aqi,
+          uvIndex,
+          moonIlluminationPercent: moonForDate?.moonIlluminationPercent ?? null,
+        },
         activity,
         { alerts, hasHighRiskAlert }
       );
@@ -229,6 +242,8 @@ app.get("/recommendations", rateLimitRecommendations, async (req, res) => {
         ...hour,
         aqi,
         uvIndex,
+        moonIlluminationPercent: moonForDate?.moonIlluminationPercent ?? null,
+        moonPhase: moonForDate?.moonPhase ?? null,
         score: scored.score,
         isHardStop: scored.isHardStop,
         reasons: scored.reasons,
@@ -261,6 +276,7 @@ app.get("/recommendations", rateLimitRecommendations, async (req, res) => {
       },
       airQuality,
       uv: uvForecast,
+      astronomy: moonData,
       recommendations,
       hourly,
     };

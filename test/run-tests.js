@@ -6,6 +6,7 @@ const {
 } = require("../src/services/uv");
 const { scoreHour } = require("../src/scoring");
 const { __testables: weatherGovTestables } = require("../src/services/weatherGov");
+const { __testables: usnoTestables } = require("../src/services/usno");
 const {
   buildRecommendationCacheKeyWithPlace,
   parseCityState,
@@ -171,6 +172,53 @@ run("uses feels-like temperature when scoring comfort", () => {
   );
 
   assert.ok(result.reasons.includes("Feels cooler than preferred"));
+});
+
+run("parses USNO illumination percentages and local offsets", () => {
+  assert.equal(usnoTestables.parseFractionIllumination("37%"), 37);
+  assert.equal(usnoTestables.parseFractionIllumination("12.6%"), 13);
+  assert.deepEqual(
+    usnoTestables.getLocalDateAndOffset("2026-03-24T23:00:00-04:00"),
+    { date: "2026-03-24", tz: -4 }
+  );
+});
+
+run("penalizes astronomy hours with bright moonlight", () => {
+  const brightMoon = scoreHour(
+    {
+      temperatureF: 52,
+      feelsLikeF: 50,
+      windSpeedMph: 4,
+      windGustMph: 6,
+      precipitationChance: 0,
+      aqi: 18,
+      uvIndex: null,
+      isDaytime: false,
+      shortForecast: "Clear",
+      moonIlluminationPercent: 88,
+    },
+    "astronomy",
+    { alerts: [], hasHighRiskAlert: false }
+  );
+
+  const darkMoon = scoreHour(
+    {
+      temperatureF: 52,
+      feelsLikeF: 50,
+      windSpeedMph: 4,
+      windGustMph: 6,
+      precipitationChance: 0,
+      aqi: 18,
+      uvIndex: null,
+      isDaytime: false,
+      shortForecast: "Clear",
+      moonIlluminationPercent: 8,
+    },
+    "astronomy",
+    { alerts: [], hasHighRiskAlert: false }
+  );
+
+  assert.ok(brightMoon.score < darkMoon.score);
 });
 
 console.log("All tests passed.");

@@ -225,6 +225,18 @@ function scoreHour(hour, activity, context = {}) {
     } else {
       reasons.push("Skies look clear");
     }
+
+    if (typeof hour.moonIlluminationPercent === "number") {
+      if (hour.moonIlluminationPercent >= 75) {
+        score -= 18;
+        reasons.push("Bright moonlight may wash out stars");
+      } else if (hour.moonIlluminationPercent >= 45) {
+        score -= 10;
+        reasons.push("Moonlight may reduce sky contrast");
+      } else if (hour.moonIlluminationPercent <= 20) {
+        reasons.push("Low moonlight is helpful");
+      }
+    }
   }
 
   const hasHighRiskAlert = Boolean(context.hasHighRiskAlert);
