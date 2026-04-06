@@ -16,6 +16,7 @@ const {
   normalizeCoordinate,
   parseCityState,
 } = require("../src/requestUtils");
+const { __testables: geocodeTestables } = require("../src/services/geocode");
 const { __testables: serverTestables } = require("../src/server");
 
 function run(name, fn) {
@@ -70,6 +71,15 @@ run("accepts multi-word state names in city search parsing", () => {
     city: "New York",
     state: "New York",
   });
+});
+
+run("prefers exact city matches over partial zippopotam matches", () => {
+  const picked = geocodeTestables.pickBestZippopotamPlace("Frederick", [
+    { "place name": "Prince Frederick", latitude: "38.5336", longitude: "-76.5955" },
+    { "place name": "Frederick", latitude: "39.4143", longitude: "-77.4105" },
+  ]);
+
+  assert.equal(picked["place name"], "Frederick");
 });
 
 run("keeps explicit city/state requests in separate cache entries", () => {

@@ -179,6 +179,51 @@ function normalizeStateInput(state) {
   return STATE_ABBREVIATIONS[text.toLowerCase()] || null;
 }
 
+function normalizePlaceName(value) {
+  return String(value || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "");
+}
+
+function pickBestZippopotamPlace(city, places = []) {
+  if (!Array.isArray(places) || places.length === 0) {
+    return null;
+  }
+
+  const target = normalizePlaceName(city);
+  const scoredPlaces = places
+    .map((place) => {
+      const placeName = String(place?.["place name"] || "").trim();
+      const normalized = normalizePlaceName(placeName);
+
+      let rank = 4;
+      if (normalized === target) {
+        rank = 0;
+      } else if (normalized.startsWith(target)) {
+        rank = 1;
+      } else if (normalized.includes(target)) {
+        rank = 2;
+      } else if (target.includes(normalized)) {
+        rank = 3;
+      }
+
+      return {
+        place,
+        rank,
+        nameLength: placeName.length,
+      };
+    })
+    .sort((a, b) => {
+      if (a.rank !== b.rank) {
+        return a.rank - b.rank;
+      }
+
+      return a.nameLength - b.nameLength;
+    });
+
+  return scoredPlaces[0]?.place || null;
+}
+
 async function reverseGeocode(lat, lon) {
   const query = new URLSearchParams({
     x: String(lon),
@@ -245,7 +290,7 @@ async function geocodeCityState(city, state) {
   const url = `${ZIPPOTAM_BASE}/${stateCode.toLowerCase()}/${citySlug}`;
   const data = await zippotamFetch(url);
   const places = data?.places || [];
-  const firstPlace = places[0];
+  const firstPlace = pickBestZippopotamPlace(cityText, places);
 
   if (!data || !firstPlace) {
     return geocodeCityStateWithCensus(cityText, stateCode);
@@ -277,4 +322,8 @@ async function geocodeCityState(city, state) {
 module.exports = {
   reverseGeocode,
   geocodeCityState,
+  __testables: {
+    normalizePlaceName,
+    pickBestZippopotamPlace,
+  },
 };
