@@ -6,7 +6,10 @@ const {
 } = require("../src/services/uv");
 const { scoreHour } = require("../src/scoring");
 const { __testables: aviationTestables } = require("../src/services/aviationWeather");
-const { __testables: weatherGovTestables } = require("../src/services/weatherGov");
+const {
+  isHighRiskAlert,
+  __testables: weatherGovTestables,
+} = require("../src/services/weatherGov");
 const { __testables: usnoTestables } = require("../src/services/usno");
 const {
   buildRecommendationCacheKeyWithPlace,
@@ -199,6 +202,83 @@ run("uses feels-like temperature when scoring comfort", () => {
   );
 
   assert.ok(result.reasons.includes("Feels cooler than preferred"));
+});
+
+run("does not classify freeze watch as a high-risk alert", () => {
+  assert.equal(
+    isHighRiskAlert({
+      event: "Freeze Watch",
+      headline: "Freeze Watch issued April 6 at 1:49PM EDT until April 8 at 9:00AM EDT",
+      severity: "Severe",
+    }),
+    false
+  );
+});
+
+run("does not heavily penalize warm daytime hours during a freeze watch", () => {
+  const result = scoreHour(
+    {
+      startTime: "2026-04-06T14:00:00-04:00",
+      endTime: "2026-04-06T15:00:00-04:00",
+      temperatureF: 58,
+      feelsLikeF: 58,
+      windSpeedMph: 6,
+      windGustMph: 8,
+      precipitationChance: 0,
+      aqi: 44,
+      uvIndex: 5,
+      isDaytime: true,
+      shortForecast: "Sunny",
+    },
+    "bike",
+    {
+      alerts: [
+        {
+          event: "Freeze Watch",
+          headline: "Freeze Watch issued April 6 at 1:49PM EDT until April 8 at 9:00AM EDT",
+          onset: "2026-04-06T13:49:00-04:00",
+          expires: "2026-04-08T09:00:00-04:00",
+        },
+      ],
+      hasHighRiskAlert: true,
+    }
+  );
+
+  assert.equal(result.isHardStop, false);
+  assert.ok(result.score >= 75);
+});
+
+run("penalizes near-freezing hours during a freeze watch", () => {
+  const mild = scoreHour(
+    {
+      startTime: "2026-04-07T03:00:00-04:00",
+      endTime: "2026-04-07T04:00:00-04:00",
+      temperatureF: 35,
+      feelsLikeF: 33,
+      windSpeedMph: 4,
+      windGustMph: 6,
+      precipitationChance: 0,
+      aqi: 22,
+      uvIndex: null,
+      isDaytime: false,
+      shortForecast: "Clear",
+    },
+    "hike",
+    {
+      alerts: [
+        {
+          event: "Freeze Watch",
+          headline: "Freeze Watch in effect overnight",
+          onset: "2026-04-06T13:49:00-04:00",
+          expires: "2026-04-08T09:00:00-04:00",
+        },
+      ],
+      hasHighRiskAlert: true,
+    }
+  );
+
+  assert.ok(mild.score < 80);
+  assert.equal(mild.isHardStop, false);
 });
 
 run("parses USNO illumination percentages and local offsets", () => {

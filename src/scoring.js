@@ -127,6 +127,109 @@ function skyPenalty(shortForecast) {
   return 0;
 }
 
+function isAlertActiveForHour(alert = {}, hour = {}) {
+  const hourStartMs = Date.parse(hour.startTime || "");
+  const hourEndMs = Date.parse(hour.endTime || "");
+  const alertStartMs = Date.parse(alert.onset || "");
+  const alertEndMs = Date.parse(alert.expires || "");
+
+  if (!Number.isFinite(hourStartMs) || !Number.isFinite(hourEndMs)) {
+    return false;
+  }
+
+  if (!Number.isFinite(alertStartMs) && !Number.isFinite(alertEndMs)) {
+    return true;
+  }
+
+  const effectiveStartMs = Number.isFinite(alertStartMs) ? alertStartMs : hourStartMs;
+  const effectiveEndMs = Number.isFinite(alertEndMs) ? alertEndMs : hourEndMs;
+
+  return hourStartMs < effectiveEndMs && hourEndMs > effectiveStartMs;
+}
+
+function getAlertText(alert = {}) {
+  const event = String(alert.event || "").toLowerCase();
+  const headline = String(alert.headline || "").toLowerCase();
+  return `${event} ${headline}`.trim();
+}
+
+function getAlertImpact(alert = {}, hour = {}, activity, comfortTemperature) {
+  const text = getAlertText(alert);
+
+  const hardStopTerms = [
+    "tornado warning",
+    "severe thunderstorm warning",
+    "flash flood warning",
+    "blizzard warning",
+    "extreme heat warning",
+    "red flag warning",
+    "dust storm warning",
+    "ice storm warning",
+    "high wind warning",
+    "hurricane warning",
+  ];
+
+  if (hardStopTerms.some((term) => text.includes(term))) {
+    return {
+      penalty: 0,
+      hardStop: true,
+      reason: "Severe weather alert is active",
+    };
+  }
+
+  if (
+    text.includes("freeze watch") ||
+    text.includes("freeze warning") ||
+    text.includes("frost advisory")
+  ) {
+    const temperature = typeof comfortTemperature === "number" ? comfortTemperature : null;
+
+    if (temperature !== null && temperature <= 32) {
+      return {
+        penalty: activity === "fishing" ? 28 : 24,
+        hardStop: false,
+        reason: "Freeze alert may affect colder hours",
+      };
+    }
+
+    if (temperature !== null && temperature <= 36) {
+      return {
+        penalty: activity === "fishing" ? 18 : 14,
+        hardStop: false,
+        reason: "Freeze alert may affect colder hours",
+      };
+    }
+
+    if (temperature !== null && temperature <= 40) {
+      return {
+        penalty: 6,
+        hardStop: false,
+        reason: "Cold alert is worth noting",
+      };
+    }
+
+    return {
+      penalty: 0,
+      hardStop: false,
+      reason: null,
+    };
+  }
+
+  if (text.includes("wind advisory")) {
+    return {
+      penalty: typeof hour.windSpeedMph === "number" && hour.windSpeedMph >= 18 ? 10 : 4,
+      hardStop: false,
+      reason: "Wind advisory is active",
+    };
+  }
+
+  return {
+    penalty: 0,
+    hardStop: false,
+    reason: null,
+  };
+}
+
 function scoreHour(hour, activity, context = {}) {
   const rules = ACTIVITY_RULES[activity] || ACTIVITY_RULES.hike;
   const reasons = [];
@@ -239,10 +342,26 @@ function scoreHour(hour, activity, context = {}) {
     }
   }
 
-  const hasHighRiskAlert = Boolean(context.hasHighRiskAlert);
+  const activeAlerts = Array.isArray(context.alerts)
+    ? context.alerts.filter((alert) => isAlertActiveForHour(alert, hour))
+    : [];
+  let alertHardStop = false;
+
+  for (const alert of activeAlerts) {
+    const impact = getAlertImpact(alert, hour, activity, comfortTemperature);
+    score -= impact.penalty || 0;
+
+    if (impact.reason) {
+      reasons.push(impact.reason);
+    }
+
+    if (impact.hardStop) {
+      alertHardStop = true;
+    }
+  }
 
   const isHardStop =
-    hasHighRiskAlert ||
+    alertHardStop ||
     (typeof hour.aqi === "number" && hour.aqi > 180) ||
     (activity === "drone" &&
       ((typeof hour.windSpeedMph === "number" && hour.windSpeedMph > 20) ||

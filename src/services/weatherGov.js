@@ -222,6 +222,8 @@ async function getActiveAlerts(lat, lon) {
       severity: props.severity,
       urgency: props.urgency,
       headline: props.headline,
+      onset: props.onset || props.effective || null,
+      expires: props.expires || props.ends || null,
     };
   }).filter(isUserFacingAlert);
 }
@@ -253,14 +255,9 @@ function isUserFacingAlert(alert = {}) {
 }
 
 function isHighRiskAlert(alert = {}) {
-  const severity = String(alert.severity || "").toLowerCase();
   const event = String(alert.event || "").toLowerCase();
   const headline = String(alert.headline || "").toLowerCase();
   const joined = `${event} ${headline}`;
-
-  if (["severe", "extreme"].includes(severity)) {
-    return true;
-  }
 
   return [
     "tornado warning",
