@@ -174,6 +174,19 @@ run("converts structured apparent temperature from celsius to fahrenheit", () =>
   assert.equal(lookup.get("2026-03-24T18"), 50);
 });
 
+run("maps structured sky cover values to hourly UTC keys", () => {
+  const lookup = weatherGovTestables.buildGridHourlyLookup({
+    values: [
+      { validTime: "2026-03-24T18:00:00+00:00/PT2H", value: 12 },
+      { validTime: "2026-03-24T20:00:00+00:00/PT1H", value: 48 },
+    ],
+  });
+
+  assert.equal(lookup.get("2026-03-24T18"), 12);
+  assert.equal(lookup.get("2026-03-24T19"), 12);
+  assert.equal(lookup.get("2026-03-24T20"), 48);
+});
+
 run("penalizes drone hours with strong gusts", () => {
   const result = scoreHour(
     {
@@ -336,6 +349,46 @@ run("penalizes astronomy hours with bright moonlight", () => {
   );
 
   assert.ok(brightMoon.score < darkMoon.score);
+});
+
+run("penalizes astronomy hours with heavy cloud cover", () => {
+  const clearSky = scoreHour(
+    {
+      temperatureF: 52,
+      feelsLikeF: 50,
+      windSpeedMph: 4,
+      windGustMph: 6,
+      precipitationChance: 0,
+      aqi: 18,
+      uvIndex: null,
+      isDaytime: false,
+      shortForecast: "Clear",
+      cloudCoverPercent: 8,
+      moonIlluminationPercent: 12,
+    },
+    "astronomy",
+    { alerts: [], hasHighRiskAlert: false }
+  );
+
+  const cloudySky = scoreHour(
+    {
+      temperatureF: 52,
+      feelsLikeF: 50,
+      windSpeedMph: 4,
+      windGustMph: 6,
+      precipitationChance: 0,
+      aqi: 18,
+      uvIndex: null,
+      isDaytime: false,
+      shortForecast: "Clear",
+      cloudCoverPercent: 92,
+      moonIlluminationPercent: 12,
+    },
+    "astronomy",
+    { alerts: [], hasHighRiskAlert: false }
+  );
+
+  assert.ok(cloudySky.score < clearSky.score);
 });
 
 run("parses aviation visibility strings in miles", () => {

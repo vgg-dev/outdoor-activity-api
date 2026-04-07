@@ -151,6 +151,7 @@ async function getHourlyForecast(lat, lon, hours = 24, pointsData = null) {
     gridData?.properties?.windGust,
     kmhToMph
   );
+  const skyCoverLookup = buildGridHourlyLookup(gridData?.properties?.skyCover);
   const apparentTemperatureLookup = buildGridHourlyLookup(
     gridData?.properties?.apparentTemperature,
     celsiusToFahrenheit
@@ -169,6 +170,7 @@ async function getHourlyForecast(lat, lon, hours = 24, pointsData = null) {
       parseWindGustMph(period.detailedForecast || period.shortForecast),
     windDirection: period.windDirection,
     shortForecast: period.shortForecast,
+    cloudCoverPercent: skyCoverLookup.get(toUtcHourKey(period.startTime)) ?? null,
     precipitationChance:
       period.probabilityOfPrecipitation &&
       typeof period.probabilityOfPrecipitation.value === "number"

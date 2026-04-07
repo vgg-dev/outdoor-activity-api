@@ -127,6 +127,18 @@ function skyPenalty(shortForecast) {
   return 0;
 }
 
+function cloudCoverPenalty(cloudCoverPercent) {
+  if (typeof cloudCoverPercent !== "number") {
+    return null;
+  }
+
+  if (cloudCoverPercent >= 90) return 42;
+  if (cloudCoverPercent >= 75) return 30;
+  if (cloudCoverPercent >= 55) return 20;
+  if (cloudCoverPercent >= 35) return 10;
+  return 0;
+}
+
 function isAlertActiveForHour(alert = {}, hour = {}) {
   const hourStartMs = Date.parse(hour.startTime || "");
   const hourEndMs = Date.parse(hour.endTime || "");
@@ -321,12 +333,22 @@ function scoreHour(hour, activity, context = {}) {
   }
 
   if (activity === "astronomy") {
-    const penalty = skyPenalty(hour.shortForecast);
+    const cloudPenalty = cloudCoverPenalty(hour.cloudCoverPercent);
+    const penalty =
+      cloudPenalty !== null ? cloudPenalty : skyPenalty(hour.shortForecast);
     if (penalty > 0) {
       score -= penalty;
-      reasons.push("Clear skies are important");
+      if (typeof hour.cloudCoverPercent === "number") {
+        reasons.push("Cloud cover may block stars");
+      } else {
+        reasons.push("Clear skies are important");
+      }
     } else {
-      reasons.push("Skies look clear");
+      if (typeof hour.cloudCoverPercent === "number") {
+        reasons.push("Cloud cover looks low");
+      } else {
+        reasons.push("Skies look clear");
+      }
     }
 
     if (typeof hour.moonIlluminationPercent === "number") {
